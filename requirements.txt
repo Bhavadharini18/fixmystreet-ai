@@ -6,3 +6,7 @@ pymongo
 requests
 pillow
 pydantic
+python-jose[cryptography]
+bcrypt
+python-multipart
+email-validator

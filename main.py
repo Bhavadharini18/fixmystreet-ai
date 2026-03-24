@@ -1,52 +1,60 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime
-from bson import ObjectId
 import motor.motor_asyncio
-import requests
-import base64
-import os
+from config import MONGODB_URL, DATABASE_NAME
 
-app = FastAPI(title="Street Issue Detection API")
+app = FastAPI(title="FixMyStreetAI API", version="2.0")
 
-# CORS middleware
+# CORS middleware - Must be before routes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # MongoDB connection
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
-db = client.street_issues
+db = client[DATABASE_NAME]
+
+# Collections
+users_collection = db.users
 reports_collection = db.reports
-
-# Roboflow API configuration
-ROBOFLOW_API_KEY = "1t0Kt9bTXNKRXzqqIbMR"
-ROBOFLOW_MODEL = "street-issues/2"
-
-class Location(BaseModel):
-    latitude: float
-    longitude: float
-
-class ReportResponse(BaseModel):
-    id: str
-    timestamp: str
-    location: Location
-    detections: List[dict]
-    issue_count: int
-    priority: str
-    image_path: Optional[str] = None
-
-from routes import router
-
-app.include_router(router)
 
 @app.get("/")
 async def root():
-    return {"message": "Street Issue Detection API"}
+    return {
+        "app": "FixMyStreetAI",
+        "version": "2.0",
+        "message": "AI-Powered Street Issue Reporting with Social Features",
+        "features": [
+            "Authentication with Location",
+            "AI Detection",
+            "Smart Priority",
+            "Social Interactions (Likes & Comments)",
+            "Street-based Feed",
+            "Rewards System",
+            "Admin Panel"
+        ]
+    }
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "message": "Backend is running"}
+
+@app.get("/test-cors")
+async def test_cors():
+    return {"message": "CORS is working if you can see this"}
+
+# Import routes AFTER app initialization
+from auth_routes import router as auth_router
+from report_routes import router as report_router
+from admin_routes import router as admin_router
+from social_routes import router as social_router
+
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+
+app.include_router(report_router, prefix="", tags=["Reports"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
+app.include_router(social_router, prefix="/social", tags=["Social"])
